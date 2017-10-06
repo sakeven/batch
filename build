@@ -1,0 +1,16 @@
+#!/bin/bash
+
+root=$(dirname $0)
+cd $root
+
+if [ ! -d "bin" ]; then
+    mkdir bin
+fi
+
+for key in batchlet apiserver scheduler;
+do
+    echo building ${key}
+    go build -o bin/${key} ./cmd/${key}
+done
+
+echo success

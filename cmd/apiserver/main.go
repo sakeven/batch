@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -37,17 +38,43 @@ func createJob(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(job)
 	if err != nil {
 		log.Errorf("unmarshal job error %s", err)
+		return
 	}
 
 	b, err := json.Marshal(job)
 	if err != nil {
 		log.Errorf("marshal job error %s", err)
+		return
 	}
-	etcdStore.client.Put(nil, fmt.Sprintf("/batch/job/%s", job.Name), string(b))
+	etcdStore.client.Put(context.TODO(), fmt.Sprintf("/batch/job/%s", job.Name), string(b))
+}
+
+func listJob(w http.ResponseWriter, r *http.Request) {
+	resp, err := etcdStore.client.Get(context.TODO(), "/batch/job", clientv3.WithPrefix())
+	if err != nil {
+		log.Errorf("can't list jobs")
+		return
+	}
+
+	jobs := make([]*api.Job, 0, resp.Count)
+	for _, kv := range resp.Kvs {
+		job := &api.Job{}
+		err := json.Unmarshal(kv.Value, job)
+		if err != nil {
+			log.Errorf("marshal job error %s", err)
+		}
+		jobs = append(jobs, job)
+	}
+	json.NewEncoder(w).Encode(jobs)
+}
+
+func bind(w http.ResponseWriter, r *http.Request) {
+
 }
 
 func main() {
 	etcdStore = NewEtcdClient()
 	router := newRouter()
-	http.ListenAndServe(":80", router)
+	log.Infof("APIserver runs on 8080")
+	log.Fatal(http.ListenAndServe(":8080", router))
 }
